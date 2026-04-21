@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ghosi Premier League</title>
+
+<style>
+body {
+    margin: 0;
+    font-family: sans-serif;
+    background: #0f172a;
+    color: white;
+}
+
+.container {
+    padding: 15px;
+}
+
+h1 {
+    text-align: center;
+    color: #38bdf8;
+}
+
+input {
+    padding: 10px;
+    width: 70%;
+    border-radius: 5px;
+    border: none;
+}
+
+button {
+    padding: 10px;
+    margin: 5px;
+    border: none;
+    border-radius: 5px;
+    background: #38bdf8;
+    font-weight: bold;
+}
+
+.score-box {
+    background: #1e293b;
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.players {
+    margin-top: 10px;
+}
+
+.player {
+    padding: 8px;
+    background: #334155;
+    margin: 5px 0;
+    border-radius: 5px;
+}
+
+.active {
+    background: #22c55e;
+    color: black;
+}
+
+.buttons {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🏏 Cricket Scorer</h1>
+
+<!-- Team Setup -->
+<div id="setup">
+    <input type="text" id="playerName" placeholder="Enter Player Name">
+    <button onclick="addPlayer()">Add Player</button>
+
+    <div id="playerList"></div>
+
+    <button onclick="startMatch()">Start Match</button>
+</div>
+
+<!-- Match Section -->
+<div id="match" style="display:none;">
+
+    <div class="score-box">
+        <h2 id="score">0/0</h2>
+        <p id="overs">0.0 Overs</p>
+        <p id="current">Striker: -</p>
+    </div>
+
+    <div class="buttons">
+        <button onclick="scoreRun(0)">0</button>
+        <button onclick="scoreRun(1)">1</button>
+        <button onclick="scoreRun(2)">2</button>
+        <button onclick="scoreRun(3)">3</button>
+        <button onclick="scoreRun(4)">4</button>
+        <button onclick="scoreRun(6)">6</button>
+        <button onclick="wicket()">Wicket</button>
+    </div>
+
+    <h3>Players</h3>
+    <div id="playersDisplay"></div>
+
+    <button onclick="newMatch()">New Match</button>
+</div>
+
+</div>
+
+<script>
+let team = [];
+let striker = 0;
+let nonStriker = 1;
+let nextPlayer = 2;
+
+let runs = 0;
+let wickets = 0;
+let balls = 0;
+
+function addPlayer() {
+    let name = document.getElementById("playerName").value;
+    if(name === "") return;
+
+    team.push({name: name, runs: 0, balls: 0});
+    document.getElementById("playerName").value = "";
+    renderPlayerList();
+}
+
+function renderPlayerList() {
+    let list = "";
+    team.forEach(p => list += "<div class='player'>" + p.name + "</div>");
+    document.getElementById("playerList").innerHTML = list;
+}
+
+function startMatch() {
+    if(team.length < 2) {
+        alert("At least 2 players chahiye");
+        return;
+    }
+
+    document.getElementById("setup").style.display = "none";
+    document.getElementById("match").style.display = "block";
+
+    updateDisplay();
+}
+
+function scoreRun(run) {
+    runs += run;
+    balls++;
+
+    let p = team[striker];
+    p.runs += run;
+    p.balls++;
+
+    if(run % 2 === 1) swapStrike();
+
+    if(balls % 6 === 0) swapStrike();
+
+    updateDisplay();
+    save();
+}
+
+function wicket() {
+    wickets++;
+    balls++;
+
+    if(nextPlayer < team.length) {
+        striker = nextPlayer;
+        nextPlayer++;
+    } else {
+        alert("All out!");
+    }
+
+    updateDisplay();
+    save();
+}
+
+function swapStrike() {
+    let temp = striker;
+    striker = nonStriker;
+    nonStriker = temp;
+}
+
+function updateDisplay() {
+    let overs = Math.floor(balls/6) + "." + (balls%6);
+
+    document.getElementById("score").innerText = runs + "/" + wickets;
+    document.getElementById("overs").innerText = overs + " Overs";
+    document.getElementById("current").innerText = "Striker: " + team[striker].name;
+
+    let html = "";
+    team.forEach((p, i) => {
+        html += `<div class="player ${i===striker?'active':''}">
+            ${p.name} - ${p.runs} (${p.balls})
+        </div>`;
+    });
+
+    document.getElementById("playersDisplay").innerHTML = html;
+}
+
+function newMatch() {
+    localStorage.clear();
+    location.reload();
+}
+
+function save() {
+    localStorage.setItem("matchData", JSON.stringify({
+        team, striker, nonStriker, nextPlayer, runs, wickets, balls
+    }));
+}
+
+window.onload = function() {
+    let data = JSON.parse(localStorage.getItem("matchData"));
+    if(data) {
+        team = data.team;
+        striker = data.striker;
+        nonStriker = data.nonStriker;
+        nextPlayer = data.nextPlayer;
+        runs = data.runs;
+        wickets = data.wickets;
+        balls = data.balls;
+
+        document.getElementById("setup").style.display = "none";
+        document.getElementById("match").style.display = "block";
+
+        updateDisplay();
+    }
+}
+</script>
+
+</body>
+</html>
