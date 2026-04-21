@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gaav Cricket Pro</title>
+
+<style>
+body{
+margin:0;
+font-family:sans-serif;
+background:#0f172a;
+color:white;
+}
+
+/* Header */
+.header{
+text-align:center;
+padding:15px;
+font-size:22px;
+font-weight:bold;
+color:#38bdf8;
+}
+
+/* Container */
+.container{
+padding:10px;
+}
+
+/* Card UI */
+.card{
+background:#1e293b;
+border-radius:12px;
+padding:15px;
+margin-bottom:12px;
+}
+
+/* Scoreboard */
+.score{
+font-size:32px;
+font-weight:bold;
+text-align:center;
+}
+
+.sub{
+text-align:center;
+color:#94a3b8;
+}
+
+/* Inputs */
+input, select{
+width:100%;
+padding:10px;
+margin-top:8px;
+border-radius:8px;
+border:none;
+font-size:16px;
+}
+
+/* Buttons */
+.btn{
+width:100%;
+padding:12px;
+margin-top:10px;
+border:none;
+border-radius:10px;
+background:#38bdf8;
+font-weight:bold;
+font-size:16px;
+}
+
+/* Run Buttons Grid */
+.grid{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:8px;
+}
+
+.run-btn{
+padding:15px;
+font-size:18px;
+border-radius:10px;
+background:#334155;
+border:none;
+color:white;
+}
+
+/* Players */
+.player{
+padding:8px;
+border-radius:8px;
+background:#334155;
+margin-top:5px;
+}
+
+.active{
+background:#22c55e;
+color:black;
+font-weight:bold;
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="header">🏏 Ghosi Premier League</div>
+
+<div class="container">
+
+<!-- SETUP -->
+<div id="setup" class="card">
+
+<h3>Team A</h3>
+<input id="aInput" placeholder="Add Player">
+<button class="btn" onclick="addPlayer('A')">Add</button>
+<div id="teamAList"></div>
+
+<h3>Team B</h3>
+<input id="bInput" placeholder="Add Player">
+<button class="btn" onclick="addPlayer('B')">Add</button>
+<div id="teamBList"></div>
+
+<button class="btn" onclick="startMatch()">Start Match</button>
+
+</div>
+
+<!-- MATCH -->
+<div id="match" style="display:none">
+
+<div class="card">
+<div class="score" id="score">0/0</div>
+<div class="sub" id="overs">0.0 Overs</div>
+<div class="sub" id="target"></div>
+</div>
+
+<div class="card">
+<label>Striker</label>
+<select id="striker" onchange="changeStriker()"></select>
+
+<label>Bowler</label>
+<select id="bowler"></select>
+</div>
+
+<div class="card grid">
+<button class="run-btn" onclick="run(0)">0</button>
+<button class="run-btn" onclick="run(1)">1</button>
+<button class="run-btn" onclick="run(2)">2</button>
+<button class="run-btn" onclick="run(3)">3</button>
+<button class="run-btn" onclick="run(4)">4</button>
+<button class="run-btn" onclick="run(6)">6</button>
+<button class="run-btn" onclick="wicket()">W</button>
+<button class="run-btn" onclick="undo()">↺</button>
+</div>
+
+<div class="card">
+<h3>Scorecard</h3>
+<div id="scorecard"></div>
+</div>
+
+<button class="btn" onclick="nextInning()">Next Innings</button>
+<button class="btn" onclick="reset()">Reset Match</button>
+
+</div>
+
+</div>
+
+<script>
+
+/* SAME LOGIC — no change */
+
+let teamA=[], teamB=[];
+let bat=[], bowl=[];
+let innings=1;
+
+let striker="";
+let currentBowler=null;
+
+let runs=0,wickets=0,balls=0;
+let target=null;
+let history=[];
+
+function addPlayer(t){
+let input=document.getElementById(t==='A'?'aInput':'bInput');
+if(!input.value)return;
+
+if(t==='A'){teamA.push(input.value);}
+else{teamB.push(input.value);}
+
+input.value="";
+renderTeams();
+}
+
+function renderTeams(){
+document.getElementById("teamAList").innerHTML=teamA.map(p=>`<div class="player">${p}</div>`).join("");
+document.getElementById("teamBList").innerHTML=teamB.map(p=>`<div class="player">${p}</div>`).join("");
+}
+
+function startMatch(){
+if(teamA.length<2 || teamB.length<2){
+alert("Both teams me players chahiye");
+return;
+}
+
+bat=teamA.map(p=>({name:p,runs:0,balls:0}));
+bowl=teamB.map(p=>({name:p,overs:0,runs:0,wkts:0}));
+
+striker=bat[0].name;
+
+document.getElementById("setup").style.display="none";
+document.getElementById("match").style.display="block";
+
+updateUI();
+}
+
+function startOverCheck(){
+if(balls%6===0){
+currentBowler=document.getElementById("bowler").value;
+if(currentBowler===null || currentBowler===""){
+alert("Select bowler for this over");
+return false;
+}
+}
+return true;
+}
+
+function run(r){
+if(!startOverCheck())return;
+
+save();
+
+runs+=r;
+balls++;
+
+let p=bat.find(x=>x.name===striker);
+p.runs+=r; p.balls++;
+
+let b=bowl[currentBowler];
+b.runs+=r;
+
+if(balls%6===0) b.overs++;
+
+checkResult();
+updateUI();
+}
+
+function wicket(){
+if(!startOverCheck())return;
+
+save();
+
+wickets++;
+balls++;
+
+let b=bowl[currentBowler];
+b.wkts++;
+
+checkResult();
+updateUI();
+}
+
+function changeStriker(){
+striker=bat[document.getElementById("striker").value].name;
+}
+
+function updateUI(){
+
+document.getElementById("score").innerText=runs+"/"+wickets;
+document.getElementById("overs").innerText=
+Math.floor(balls/6)+"."+(balls%6)+" Overs";
+
+document.getElementById("striker").innerHTML=
+bat.map((p,i)=>`<option value="${i}" ${p.name===striker?'selected':''}>${p.name}</option>`);
+
+document.getElementById("bowler").innerHTML=
+bowl.map((p,i)=>`<option value="${i}">${p.name}</option>`);
+
+renderScorecard();
+}
+
+function renderScorecard(){
+let html="<b>Batting</b><br>";
+
+bat.forEach(p=>{
+html+=`<div class="player ${p.name===striker?'active':''}">
+${p.name} - ${p.runs} (${p.balls})
+</div>`;
+});
+
+html+="<hr><b>Bowling</b><br>";
+
+bowl.forEach(p=>{
+html+=`<div class="player">
+${p.name} - ${p.overs} ov, ${p.runs} runs, ${p.wkts} wkts
+</div>`;
+});
+
+document.getElementById("scorecard").innerHTML=html;
+}
+
+function nextInning(){
+if(innings===1){
+target=runs+1;
+
+innings=2;
+runs=0;wickets=0;balls=0;
+history=[];
+
+bat=teamB.map(p=>({name:p,runs:0,balls:0}));
+bowl=teamA.map(p=>({name:p,overs:0,runs:0,wkts:0}));
+
+striker=bat[0].name;
+
+document.getElementById("target").innerText="Target: "+target;
+
+updateUI();
+}else{
+alert("Match Finished");
+}
+}
+
+function checkResult(){
+if(innings===2 && target){
+let ballsLeft=(10*6)-balls;
+let need=target-runs;
+
+document.getElementById("target").innerText=
+`Need ${need} runs in ${ballsLeft} balls`;
+
+if(runs>=target) alert("🏆 Batting Team Won");
+if(balls>=60 && runs<target) alert("🏆 Bowling Team Won");
+}
+}
+
+function save(){
+history.push(JSON.stringify({runs,wickets,balls,bat,bowl,striker,currentBowler}));
+}
+
+function undo(){
+if(history.length===0)return;
+let d=JSON.parse(history.pop());
+runs=d.runs;wickets=d.wickets;balls=d.balls;
+bat=d.bat;bowl=d.bowl;striker=d.striker;currentBowler=d.currentBowler;
+updateUI();
+}
+
+function reset(){
+location.reload();
+}
+
+</script>
+
+</body>
+</html>
